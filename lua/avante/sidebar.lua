@@ -1069,7 +1069,7 @@ function Sidebar:get_content_between_separators()
   return content, start_line
 end
 
----@alias AvanteSlashCommands "clear" | "help" | "lines"
+---@alias AvanteSlashCommands "clear" | "help" | "lines" | "hist"
 ---@alias AvanteSlashCallback fun(args: string, cb?: fun(args: string): nil): nil
 ---@alias AvanteSlash {description: string, command: AvanteSlashCommands, details: string, shorthelp?: string, callback?: AvanteSlashCallback}
 ---@return AvanteSlash[]
@@ -1088,6 +1088,7 @@ function Sidebar:get_commands()
   local items = {
     { description = "Show help message", command = "help" },
     { description = "Clear chat history", command = "clear" },
+    { description = "View chat history", command = "hist" },
     {
       shorthelp = "Ask a question about specific lines",
       description = "/lines <start>-<end> <question>",
@@ -1118,6 +1119,23 @@ function Sidebar:get_commands()
       end
     end,
     lines = function(args, cb)
+      if cb then cb(args) end
+    end,
+    hist = function(args, cb)
+      local chat_history = Path.history.load(self.code.bufnr)
+      if next(chat_history) == nil then
+        self:update_content("Chat history is empty", { focus = false, scroll = false })
+        return
+      end
+      local content = ""
+      for idx, entry in ipairs(chat_history) do
+        local prefix =
+          get_chat_record_prefix(entry.timestamp, entry.provider, entry.model, entry.request or entry.requirement or "")
+        content = content .. prefix
+        content = content .. entry.response .. "\n\n"
+        if idx < #chat_history then content = content .. "---\n\n" end
+      end
+      self:update_content(content, { focus = false, scroll = false })
       if cb then cb(args) end
     end,
   }
