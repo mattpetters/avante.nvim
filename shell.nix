@@ -1,3 +1,4 @@
+with import <nixpkgs> { };
 let
   rust-overlay = builtins.fetchTarball "https://github.com/oxalica/rust-overlay/archive/master.tar.gz";
   pkgs = import <nixpkgs> {
@@ -9,4 +10,9 @@ in
     packages = [
       toolchain
     ];
-  }
+  buildInputs = [
+    darwin.apple_sdk.frameworks.Security
+    pkg-config
+    openssl
+  ];
+}
