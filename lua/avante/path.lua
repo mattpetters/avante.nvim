@@ -13,14 +13,22 @@ local P = {}
 local H = {}
 
 -- Get a chat history file name given a buffer
+-- Get a chat history file name for the current workspace (git repository)
 ---@param bufnr integer
 ---@return string
 H.filename = function(bufnr)
-  local code_buf_name = api.nvim_buf_get_name(bufnr)
-  -- Replace path separators with double underscores
-  local path_with_separators = fn.substitute(code_buf_name, "/", "__", "g")
-  -- Replace other non-alphanumeric characters with single underscores
-  return fn.substitute(path_with_separators, "[^A-Za-z0-9._]", "_", "g") .. ".json"
+  local buf_path = api.nvim_buf_get_name(bufnr)
+  local repo_root = Utils.root.get({ buf = bufnr })
+
+  if repo_root then
+    -- Use the git repo name as the base for the history file
+    local repo_name = fn.fnamemodify(repo_root, ":t")
+    return repo_name .. ".json"
+  else
+    -- Fallback to using the buffer name if not in a git repo
+    local buf_name = fn.fnamemodify(buf_path, ":t")
+    return fn.substitute(buf_name, "[^A-Za-z0-9._]", "_", "g") .. ".json"
+  end
 end
 
 -- Given a mode, return the file name for the custom prompt.
@@ -44,6 +52,25 @@ M.load = function(bufnr)
     return content ~= nil and vim.json.decode(content) or {}
   end
   return {}
+end
+
+
+M.load_all = function()
+  local all_history = {}
+  local history_dir = Path:new(Config.history.storage_path)
+  local files = Scan.scan_dir(history_dir:absolute(), { search_pattern = "%.json$" })
+
+  for _, file in ipairs(files) do
+    local history_file = Path:new(file)
+    local content = history_file:read()
+    if content then
+      local buffer_history = vim.json.decode(content) or {}
+      vim.list_extend(all_history, buffer_history)
+    end
+  end
+
+  table.sort(all_history, function(a, b) return a.timestamp < b.timestamp end)
+  return all_history
 end
 
 -- Saves the chat history for the given buffer.
